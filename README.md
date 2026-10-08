@@ -49,45 +49,68 @@ python run_benchmark.py --agents agentic,agentic_jev --runs 1 --scenarios oom_he
 
 ## End-to-end flow (alert → LLM response)
 
-In production, an on-call alert kicks off the pipeline. This repo mocks that path with YAML scenarios and sample log files — the steps are the same.
+Two patterns are supported — **single-pass** (Agents A/B) and **agentic** (Agents C/D):
 
 ```mermaid
 flowchart TD
     A[Alert fires] --> B[Build incident context]
-    B --> C[Fetch logs / traces for time window]
-    C --> D[Split into chunks]
-    D --> E{Agent path}
 
-    E -->|Baseline| F[Send all chunks to LLM]
-    E -->|With Jev| G[Jev scores each chunk vs incident]
+    B --> P{Pattern}
+
+    P -->|Single-pass A/B| C[Load all log chunks upfront]
+    C --> D{Agent?}
+    D -->|Baseline| F[Send all chunks to LLM]
+    D -->|With Jev| G[Jev score each chunk]
     G --> H{relevance ≥ threshold?}
     H -->|yes| I[Keep chunk]
     H -->|no| J[Drop chunk]
-    I --> K[Compact log excerpts]
+    I --> K[Compact excerpts]
     J --> K
-    F --> L[Build diagnosis prompt]
+    F --> L[One LLM call → DIAGNOSIS]
     K --> L
-    L --> M[LLM: root cause + evidence + next action]
-    M --> N[DIAGNOSIS response]
+
+    P -->|Agentic C/D| M[LLM starts with incident only — no logs]
+    M --> N[LLM calls fetch_logs tool]
+    N --> O[MockLogStore returns chunk batch]
+    O --> Q{Agent D?}
+    Q -->|yes| R[Jev filter this batch]
+    Q -->|no| S[Return all fetched chunks]
+    R --> T[Tool result back to LLM]
+    S --> T
+    T --> U{Enough evidence?}
+    U -->|no| N
+    U -->|yes| V[submit_diagnosis → DIAGNOSIS]
 ```
 
-### Step by step (Agent B — with Jev)
+### Single-pass (Agents A & B)
+
+Logs are loaded **before** the LLM runs. One diagnosis call.
 
 | Step | What happens | In this repo |
 | --- | --- | --- |
-| 1. **Alert** | Pager/monitor fires (OOM, CrashLoop, latency spike, etc.) | Scenario `incident` block or `samples/incident-*.yaml` |
-| 2. **Incident context** | Title, service, symptoms, metrics summary attached to the run | `scenario.incident`, `metrics_summary`, `runbook_excerpt` |
-| 3. **Fetch logs** | Pull log/trace export for the affected service and time range | Mock `log_chunks` in `scenarios/` or `.log` files in `samples/` |
-| 4. **Chunk** | Split raw lines into windows (blank-line or fixed-size blocks) | `scripts/log_utils.py` → `chunk_by_blank_lines()` |
-| 5. **Score** | Jev asks: *does this chunk help diagnose this incident?* → relevance 0–1 | `jev/chunk_scorer.py` → `ChunkRelevanceScorer.score_chunk()` |
-| 6. **Filter** | Keep chunks ≥ `RELEVANCE_THRESHOLD`; drop the rest (`JEV_MODE=live`) | `filter_chunks()` — shadow mode scores but passes all |
-| 7. **Prompt** | System prompt + incident block + **only filtered** log excerpts | `agents/common.py` → `build_diagnosis_prompt()` |
-| 8. **Diagnose** | LLM returns `DIAGNOSIS:` with root cause, evidence, recommended action | `invoke_llm_diagnosis()` via LangChain + OpenAI |
-| 9. **Evaluate** | Check diagnosis keywords and signal recall (benchmark only) | `evaluate_diagnosis()` in benchmark runs |
+| 1. **Alert** | Pager/monitor fires | `scenario.incident` or `samples/incident-*.yaml` |
+| 2. **Incident context** | Title, service, symptoms, metrics | `scenario.incident`, `metrics_summary` |
+| 3. **Load logs** | Full export available upfront | `scenarios/*.yaml` log_chunks or `samples/*.log` |
+| 4. **Chunk** | Split into windows | Pre-chunked in YAML; `log_utils.chunk_by_blank_lines()` for samples |
+| 5. **Score & filter** | Jev relevance filter (Agent B only) | `jev/chunk_scorer.py` |
+| 6. **Diagnose** | One LLM call | `agents/baseline.py` or `agents/with_jev.py` |
 
-**Baseline (Agent A)** skips steps 5–6: all chunks go straight to the prompt in step 7.
+**Agent A** skips step 5. **Agent B** filters before step 6.
 
-### Example data flow
+### Agentic (Agents C & D)
+
+Logs are fetched **on demand** via tool calls. Multiple LLM turns.
+
+| Step | What happens | In this repo |
+| --- | --- | --- |
+| 1. **Alert** | Same as above | Same |
+| 2. **Incident context** | LLM sees incident + metrics — **no logs yet** | `agents/agentic.py` initial prompt |
+| 3. **fetch_logs** | LLM requests logs (severity, time window) | `tools/log_store.py` → `MockLogStore` |
+| 4. **Filter batch** | Jev filters each fetch (Agent D only) | `ChunkRelevanceScorer` inside tool handler |
+| 5. **Reason** | LLM reads tool result, decides next action | ReAct loop, up to `AGENT_MAX_TURNS` |
+| 6. **Re-fetch or diagnose** | More `fetch_logs` calls or `submit_diagnosis` | Loop until diagnosis or max turns |
+
+### Example: single-pass (Agent B)
 
 ```
 Alert:     "Pod OOMKilled — report-generator"
@@ -98,10 +121,19 @@ LLM input: incident summary + 2 excerpts (~385 tokens vs ~835 baseline)
 Output:    DIAGNOSIS: JavaScript heap OOM during batch export; recommend 512Mi limit
 ```
 
-Try it on a sample file:
+### Example: agentic (Agent C)
+
+```
+Turn 1:  LLM → fetch_logs(severity=ERROR)  → 2 signal chunks returned
+Turn 2:  LLM → fetch_metrics()             → memory at 250-255Mi / 256Mi limit
+Turn 3:  LLM → submit_diagnosis(...)       → DIAGNOSIS with evidence + 512Mi recommendation
+```
+
+Try it:
 
 ```bash
 python scripts/test_sample_log.py --log samples/report-generator-oom.log --diagnose
+python scripts/test_agentic.py --scenario oom_heap_exhaustion
 ```
 
 ## Quick start
