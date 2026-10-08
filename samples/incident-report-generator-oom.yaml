@@ -1,0 +1,8 @@
+# Incident context paired with samples/report-generator-oom.log
+title: Pod OOMKilled — report-generator
+service: report-generator
+description: Pod report-generator-x9k2 OOMKilled during nightly batch export.
+symptoms: Exit code 137, restarts increasing, memory limit 256Mi
+metrics_summary: |
+  container_memory_usage_bytes: sustained 250-255Mi before kill
+  container_memory_limit_bytes: 268435456 (256Mi)

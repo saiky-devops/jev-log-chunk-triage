@@ -1,0 +1,28 @@
+# Sample Datadog APM trace export — order-service P99 latency breach
+# [SIGNAL] slow postgres.query span dominates checkout trace
+
+[trace abc-001] GET /health duration=2ms status=200 spans=1
+[trace abc-002] GET /metrics duration=15ms status=200 spans=2
+
+[trace abc-010] GET /static/logo.png duration=8ms status=200
+[trace abc-011] GET /api/status duration=5ms status=200
+
+[trace abc-020] heartbeat /internal/ping duration=1ms
+[trace abc-021] cron /tasks/sweep duration=22ms
+
+# [SIGNAL] checkout path — DB span is dominant
+[trace def-884] POST /api/checkout duration=2380ms status=200
+  span: http.request 45ms
+  span: postgres.query SELECT orders 2100ms <-- dominant
+  span: redis.get 12ms
+query: SELECT * FROM orders WHERE cart_id=$1 (slow seq scan flagged)
+
+# [SIGNAL] APM insight summary
+APM Insight: 92% of latency in checkout path attributable to postgres.query span
+Connection pool wait time elevated pool_active=20 pool_max=20
+
+[trace abc-030] GET /health duration=2ms
+[trace abc-031] GET /ready duration=2ms
+
+[trace abc-040] debug span export batch=50 ok
+[trace abc-050] GET /favicon.ico duration=3ms 404

@@ -1,0 +1,61 @@
+id: crashloop_db_config
+name: CrashLoop from invalid database URL
+tags: [logs, crashloop, config]
+incident:
+  title: CrashLoopBackOff — payments-worker
+  service: payments-worker
+  description: Pod crash looping after deploy v2.4.1 with ConfigMap change.
+  symptoms: Exit code 1, CrashLoopBackOff 15m, DATABASE_URL change in deploy
+metrics_summary: |
+  kube_pod_container_status_restarts_total: 8 in 15m
+  http_error_rate: elevated on dependent services
+runbook_excerpt: |
+  CrashLoop after config deploy: inspect logs for config parse errors, compare recent deploys, prefer rollout undo.
+log_chunks:
+  - id: chunk_01
+    is_signal: false
+    content: |
+      2026-10-06T10:00:01Z INFO  startup - loading feature flags count=42
+      2026-10-06T10:00:02Z DEBUG env - PATH set JAVA_HOME=/usr/lib/jvm
+  - id: chunk_02
+    is_signal: true
+    content: |
+      2026-10-06T10:00:05Z ERROR config.load - invalid DATABASE_URL scheme "postgres:/" expected "postgres://"
+      2026-10-06T10:00:05Z ERROR bootstrap - FATAL Cannot connect to database at startup
+      2026-10-06T10:00:05Z ERROR main - process exiting code=1
+  - id: chunk_03
+    is_signal: false
+    content: |
+      2026-10-06T10:00:10Z INFO  kube-probe - GET /health 200 1ms
+      2026-10-06T10:00:11Z INFO  kube-probe - GET /ready 503 1ms
+  - id: chunk_04
+    is_signal: true
+    content: |
+      2026-10-06T10:00:05Z WARN  KubernetesEvents - Back-off restarting failed container payments-worker
+      State: Waiting Reason=CrashLoopBackOff Last Exit Code=1
+  - id: chunk_05
+    is_signal: false
+    content: |
+      2026-10-06T09:59:00Z DEBUG metrics - scrape completed series=1200
+      2026-10-06T09:59:05Z INFO  sidecar - xds snapshot version=8821
+  - id: chunk_06
+    is_signal: false
+    content: |
+      2026-10-06T09:58:30Z INFO  AccessLog - POST /internal/heartbeat 200 3ms
+      2026-10-06T09:58:31Z DEBUG tracing - exported 22 spans
+  - id: chunk_07
+    is_signal: false
+    content: |
+      2026-10-06T09:58:00Z INFO  cron - scheduled cache warm completed keys=500
+  - id: chunk_08
+    is_signal: true
+    content: |
+      Deploy audit: v2.4.1 15m ago ConfigMap/database-url changed field=DATABASE_URL
+      Previous v2.4.0 stable 2d ago HEALTHY
+expected:
+  diagnosis_contains:
+    - database
+    - rollback
+  required_signal_chunks:
+    - chunk_02
+    - chunk_04

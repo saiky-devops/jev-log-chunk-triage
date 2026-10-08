@@ -1,0 +1,70 @@
+id: trace_latency_spike
+name: Datadog trace — DB span latency spike
+tags: [traces, latency]
+incident:
+  title: P99 latency breach — order-service
+  service: order-service
+  description: P99 latency 2.4s vs 300ms SLO; traces implicate downstream DB span.
+  symptoms: Slow checkout API, normal CPU/memory
+metrics_summary: |
+  trace_latency_p99{service="order-service"}: 2400ms
+  db_span_duration_p99: 2100ms
+runbook_excerpt: |
+  Latency SLO breach: inspect trace waterfall for dominant span; check DB connection pool and slow queries.
+log_chunks:
+  - id: trace_01
+    is_signal: false
+    source: traces
+    content: |
+      [trace abc-001] GET /health duration=2ms status=200 spans=1
+      [trace abc-002] GET /metrics duration=15ms status=200 spans=2
+  - id: trace_02
+    is_signal: true
+    source: traces
+    content: |
+      [trace def-884] POST /api/checkout duration=2380ms status=200
+        span: http.request 45ms
+        span: postgres.query SELECT orders 2100ms <-- dominant
+        span: redis.get 12ms
+      query: SELECT * FROM orders WHERE cart_id=$1 (slow seq scan flagged)
+  - id: trace_03
+    is_signal: false
+    source: traces
+    content: |
+      [trace abc-010] GET /static/logo.png duration=8ms status=200
+      [trace abc-011] GET /api/status duration=5ms status=200
+  - id: trace_04
+    is_signal: false
+    source: traces
+    content: |
+      [trace abc-020] heartbeat /internal/ping duration=1ms
+      [trace abc-021] cron /tasks/sweep duration=22ms
+  - id: trace_05
+    is_signal: true
+    source: traces
+    content: |
+      APM Insight: 92% of latency in checkout path attributable to postgres.query span
+      Connection pool wait time elevated pool_active=20 pool_max=20
+  - id: trace_06
+    is_signal: false
+    source: traces
+    content: |
+      [trace abc-030] GET /health duration=2ms
+      [trace abc-031] GET /ready duration=2ms
+  - id: trace_07
+    is_signal: false
+    source: traces
+    content: |
+      [trace abc-040] debug span export batch=50 ok
+  - id: trace_08
+    is_signal: false
+    source: traces
+    content: |
+      [trace abc-050] GET /favicon.ico duration=3ms 404
+expected:
+  diagnosis_contains:
+    - postgres
+    - latency
+  required_signal_chunks:
+    - trace_02
+    - trace_05

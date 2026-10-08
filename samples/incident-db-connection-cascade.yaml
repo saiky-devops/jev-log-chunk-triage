@@ -1,0 +1,7 @@
+title: High 503 rate — api-gateway
+service: api-gateway
+description: Gateway returning 503s; postgres-primary may be unreachable.
+symptoms: postgres_up=0, connection refused errors across pods
+metrics_summary: |
+  http_5xx_rate{service="api-gateway"}: 78% last 10m
+  postgres_up{instance="postgres-primary"}: 0

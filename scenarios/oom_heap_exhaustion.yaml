@@ -1,0 +1,67 @@
+id: oom_heap_exhaustion
+name: OOM heap exhaustion in batch worker
+tags: [logs, oom, java]
+incident:
+  title: Pod OOMKilled — report-generator
+  service: report-generator
+  description: Pod report-generator-x9k2 OOMKilled during nightly batch export.
+  symptoms: Exit code 137, restarts increasing, memory limit 256Mi
+metrics_summary: |
+  container_memory_usage_bytes: sustained 250-255Mi before kill
+  container_memory_limit_bytes: 268435456 (256Mi)
+runbook_excerpt: |
+  OOMKilled: compare working set vs limit. For large batch jobs recommend 512Mi unless leak confirmed.
+log_chunks:
+  - id: chunk_01
+    is_signal: false
+    content: |
+      2026-10-06T02:00:01Z INFO  HealthCheckController - health check OK status=UP
+      2026-10-06T02:00:02Z DEBUG ConnectionPool - pool stats active=2 idle=8
+      2026-10-06T02:00:03Z INFO  ScheduledTask - cron heartbeat completed duration=12ms
+  - id: chunk_02
+    is_signal: false
+    content: |
+      2026-10-06T02:00:10Z INFO  AccessLog - GET /health 200 1ms ua=kube-probe/1.29
+      2026-10-06T02:00:11Z INFO  AccessLog - GET /ready 200 2ms ua=kube-probe/1.29
+      2026-10-06T02:00:12Z DEBUG MetricsReporter - profiling sample cpu=4% mem=41%
+  - id: chunk_03
+    is_signal: true
+    content: |
+      2026-10-06T02:01:00Z INFO  BatchProcessor - Processing batch of 5000 records job=nightly-export
+      2026-10-06T02:01:15Z WARN  MemoryMonitor - Heap usage: 248Mi / 256Mi (96.8%)
+      2026-10-06T02:01:18Z ERROR NodeProcess - FATAL ERROR: JavaScript heap out of memory
+      2026-10-06T02:01:18Z ERROR NodeProcess - Allocation failed - process aborting exit=137
+  - id: chunk_04
+    is_signal: false
+    content: |
+      2026-10-06T02:00:20Z DEBUG GCLogger - gc pause young 12ms freed 2MB
+      2026-10-06T02:00:25Z INFO  ConfigWatcher - no config changes detected
+      2026-10-06T02:00:30Z DEBUG Tracing - span export batch size=40 ok
+  - id: chunk_05
+    is_signal: true
+    content: |
+      2026-10-06T02:01:17Z WARN  KubernetesEvents - Container report-generator terminated Reason=OOMKilled
+      Last State: Terminated Exit Code: 137 Signal OOMKilled
+      Limits: memory 256Mi cpu 500m
+  - id: chunk_06
+    is_signal: false
+    content: |
+      2026-10-06T02:00:40Z INFO  AccessLog - GET /metrics 200 45ms prometheus-scraper
+      2026-10-06T02:00:41Z DEBUG CacheLayer - cache hit ratio 0.92 keyspace=session
+  - id: chunk_07
+    is_signal: false
+    content: |
+      2026-10-06T02:00:50Z INFO  Sidecar - envoy access log downstream_rq_200=120
+      2026-10-06T02:00:51Z DEBUG DNS - resolved postgres-primary.internal A record ttl=30
+  - id: chunk_08
+    is_signal: false
+    content: |
+      2026-10-06T02:00:55Z INFO  AuditLog - user=system action=rotate_logs status=success
+      2026-10-06T02:00:56Z DEBUG ThreadPool - worker queue depth=0
+expected:
+  diagnosis_contains:
+    - memory
+    - "512"
+  required_signal_chunks:
+    - chunk_03
+    - chunk_05

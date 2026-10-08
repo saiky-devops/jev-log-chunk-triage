@@ -1,0 +1,7 @@
+title: Log volume alert — checkout-api
+service: checkout-api
+description: Log indexer flagged volume spike; likely routine probe traffic during sale event.
+symptoms: INFO-level volume up, error rate unchanged at 0.01%
+metrics_summary: |
+  error_rate: 0.01% unchanged
+  log_volume_info: +40% from kube-probe traffic

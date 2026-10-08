@@ -1,0 +1,7 @@
+title: CrashLoopBackOff — payments-worker
+service: payments-worker
+description: Pod crash looping after deploy v2.4.1 with ConfigMap change.
+symptoms: Exit code 1, CrashLoopBackOff 15m, DATABASE_URL change in deploy
+metrics_summary: |
+  kube_pod_container_status_restarts_total: 8 in 15m
+  http_error_rate: elevated on dependent services

@@ -1,0 +1,27 @@
+# Sample log — payments-worker CrashLoopBackOff after bad DATABASE_URL
+# [SIGNAL] invalid config and CrashLoop events below
+
+2026-10-06T09:58:00Z INFO  cron - scheduled cache warm completed keys=500
+2026-10-06T09:58:30Z INFO  AccessLog - POST /internal/heartbeat 200 3ms
+2026-10-06T09:58:31Z DEBUG tracing - exported 22 spans
+
+2026-10-06T09:59:00Z DEBUG metrics - scrape completed series=1200
+2026-10-06T09:59:05Z INFO  sidecar - xds snapshot version=8821
+
+2026-10-06T10:00:01Z INFO  startup - loading feature flags count=42
+2026-10-06T10:00:02Z DEBUG env - PATH set JAVA_HOME=/usr/lib/jvm
+
+# [SIGNAL] config parse failure on startup
+2026-10-06T10:00:05Z ERROR config.load - invalid DATABASE_URL scheme "postgres:/" expected "postgres://"
+2026-10-06T10:00:05Z ERROR bootstrap - FATAL Cannot connect to database at startup
+2026-10-06T10:00:05Z ERROR main - process exiting code=1
+
+2026-10-06T10:00:05Z WARN  KubernetesEvents - Back-off restarting failed container payments-worker
+2026-10-06T10:00:05Z WARN  KubernetesEvents - State Waiting Reason=CrashLoopBackOff Last Exit Code=1
+
+2026-10-06T10:00:10Z INFO  kube-probe - GET /health 200 1ms
+2026-10-06T10:00:11Z INFO  kube-probe - GET /ready 503 1ms
+
+# [SIGNAL] deploy audit trail
+2026-10-06T10:00:12Z INFO  DeployAudit - v2.4.1 15m ago ConfigMap/database-url changed field=DATABASE_URL
+2026-10-06T10:00:12Z INFO  DeployAudit - previous v2.4.0 stable 2d ago HEALTHY

@@ -1,0 +1,7 @@
+title: P99 latency breach — order-service
+service: order-service
+description: P99 latency 2.4s vs 300ms SLO; traces implicate downstream DB span.
+symptoms: Slow checkout API, normal CPU/memory
+metrics_summary: |
+  trace_latency_p99{service="order-service"}: 2400ms
+  db_span_duration_p99: 2100ms
