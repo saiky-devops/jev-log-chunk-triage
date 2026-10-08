@@ -11,6 +11,7 @@ ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from agents.agentic import run_agentic_agent
 from agents.baseline import run_baseline_agent
 from agents.with_jev import run_jev_agent
 from benchmark.metrics import aggregate_all
@@ -32,8 +33,14 @@ def run_single(
 
     if agent_type == "baseline":
         run_baseline_agent(scenario, telemetry)
-    else:
+    elif agent_type == "with_jev":
         run_jev_agent(scenario, telemetry)
+    elif agent_type == "agentic":
+        run_agentic_agent(scenario, telemetry, use_jev=False)
+    elif agent_type == "agentic_jev":
+        run_agentic_agent(scenario, telemetry, use_jev=True)
+    else:
+        raise ValueError(f"Unknown agent_type: {agent_type}")
 
     metrics = telemetry.metrics
     telemetry.save_raw(raw_dir)
@@ -105,7 +112,7 @@ def main() -> None:
     parser.add_argument(
         "--agents",
         default="baseline,with_jev",
-        help="Comma-separated: baseline, with_jev",
+        help="Comma-separated: baseline, with_jev, agentic, agentic_jev",
     )
     parser.add_argument(
         "--jev-mode",

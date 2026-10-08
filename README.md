@@ -20,7 +20,32 @@ All log chunks ──► [Agent B] Jev scores each chunk ──► high-signal o
 | Jev role | None | `Noul` score per chunk: anomaly-relevant to this incident? |
 | LLM role | Diagnose from full context | Diagnose from compact context |
 
-Both agents use the same LLM, prompts, and mocked scenarios.
+Both single-pass agents use the same LLM, prompts, and mocked scenarios.
+
+### Agentic mode (tool calling + fetch loop)
+
+Agents C and D add a **ReAct loop**: the LLM starts with incident context only and calls tools to gather evidence.
+
+```
+Alert → incident context (no logs yet)
+  → LLM turn 1: fetch_logs(severity=ALL)
+  → tool returns excerpts (Jev filters each fetch in Agent D)
+  → LLM turn 2: need more → fetch_logs(severity=ERROR)
+  → LLM turn 3: submit_diagnosis(...)
+```
+
+| | Agent C (`agentic`) | Agent D (`agentic_jev`) |
+| --- | --- | --- |
+| Log access | `fetch_logs` tool (mock store) | Same |
+| Per-fetch filtering | None — all fetched chunks shown | Jev scores each fetch batch |
+| LLM calls | Multiple (reason → act → observe) | Multiple |
+| Recovery | Can re-fetch if context insufficient | Same + compact excerpts per fetch |
+
+```bash
+python scripts/test_agentic.py --scenario oom_heap_exhaustion
+JEV_MODE=live python scripts/test_agentic.py --scenario oom_heap_exhaustion --jev
+python run_benchmark.py --agents agentic,agentic_jev --runs 1 --scenarios oom_heap_exhaustion
+```
 
 ## End-to-end flow (alert → LLM response)
 
@@ -88,6 +113,7 @@ cp .env.example .env   # set OPENAI_API_KEY, TYPESAFE_API_KEY
 
 python scripts/smoke_test.py
 python scripts/test_sample_log.py          # score samples/report-generator-oom.log
+python scripts/test_agentic.py             # tool-calling agent on one scenario
 JEV_MODE=shadow python run_benchmark.py --runs 3
 JEV_MODE=live python run_benchmark.py --runs 3
 ```
@@ -120,11 +146,12 @@ Each scenario defines log chunks (`is_signal` for ground truth), incident contex
 ## Project layout
 
 ```
-agents/           baseline.py (all chunks), with_jev.py (filtered)
+agents/           baseline.py, with_jev.py (single-pass), agentic.py (tool loop)
+tools/            log_store.py — mock fetch_logs backend
 jev/              chunk_scorer.py — Jev relevance scoring
 scenarios/        YAML log-chunk fixtures (benchmark)
 samples/          standalone .log files + incident YAML for manual testing
-scripts/          smoke_test.py, test_sample_log.py, log_utils.py
+scripts/          smoke_test.py, test_sample_log.py, test_agentic.py, log_utils.py
 benchmark/        runner, telemetry, metrics, report
 results/          REPORT.md, summary.json, charts (raw JSON in results/raw/ is gitignored)
 article/          write-up draft

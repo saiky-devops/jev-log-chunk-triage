@@ -23,6 +23,7 @@ class Settings:
     jev_mode: str  # shadow | live | mock
     benchmark_runs: int
     relevance_threshold: float
+    agent_max_turns: int
 
     @classmethod
     def from_env(cls) -> Settings:
@@ -33,6 +34,7 @@ class Settings:
             jev_mode=os.getenv("JEV_MODE", "mock").lower(),
             benchmark_runs=int(os.getenv("BENCHMARK_RUNS", "3")),
             relevance_threshold=float(os.getenv("RELEVANCE_THRESHOLD", "0.65")),
+            agent_max_turns=int(os.getenv("AGENT_MAX_TURNS", "8")),
         )
 
 
