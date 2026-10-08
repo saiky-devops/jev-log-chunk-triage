@@ -30,8 +30,8 @@ python scripts/test_sample_log.py --log samples/prompt-injection.log --incident 
 python scripts/test_sample_log.py --log samples/trace-latency-spike.log --incident samples/incident-trace-latency-spike.yaml
 python scripts/test_sample_log.py --log samples/routine-health-polls.log --incident samples/incident-routine-health-polls.yaml
 
-# Live Jev + LLM diagnosis
-JEV_MODE=live python scripts/test_sample_log.py --log samples/db-connection-cascade.log --incident samples/incident-db-connection-cascade.yaml --diagnose
+# Full agentic diagnosis (uses scenarios/ YAML, not sample files directly)
+python scripts/test_agentic.py --scenario db_connection_cascade --jev
 ```
 
 ## List all samples

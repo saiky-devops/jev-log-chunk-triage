@@ -1,4 +1,4 @@
-"""Benchmark harness: run both agents across scenarios, collect metrics."""
+"""Benchmark harness: run agentic agents across scenarios, collect metrics."""
 
 from __future__ import annotations
 
@@ -6,14 +6,11 @@ import argparse
 import sys
 from pathlib import Path
 
-# Ensure project root is on path
 ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from agents.agentic import run_agentic_agent
-from agents.baseline import run_baseline_agent
-from agents.with_jev import run_jev_agent
 from benchmark.metrics import aggregate_all
 from benchmark.report import save_results
 from benchmark.telemetry import RunMetrics, TelemetryCollector
@@ -31,16 +28,12 @@ def run_single(
     scenario = load_scenario(ROOT / "scenarios" / f"{scenario_id}.yaml")
     telemetry = TelemetryCollector(scenario_id, agent_type, run_index)
 
-    if agent_type == "baseline":
-        run_baseline_agent(scenario, telemetry)
-    elif agent_type == "with_jev":
-        run_jev_agent(scenario, telemetry)
-    elif agent_type == "agentic":
+    if agent_type == "agentic":
         run_agentic_agent(scenario, telemetry, use_jev=False)
     elif agent_type == "agentic_jev":
         run_agentic_agent(scenario, telemetry, use_jev=True)
     else:
-        raise ValueError(f"Unknown agent_type: {agent_type}")
+        raise ValueError(f"Unknown agent_type: {agent_type} (use agentic or agentic_jev)")
 
     metrics = telemetry.metrics
     telemetry.save_raw(raw_dir)
@@ -58,7 +51,7 @@ def run_benchmark(
         sys.exit(1)
 
     runs = runs or settings.benchmark_runs
-    agents = agents or ["baseline", "with_jev"]
+    agents = agents or ["agentic", "agentic_jev"]
     scenarios = load_all_scenarios()
     if scenario_filter:
         scenarios = [s for s in scenarios if s.id in scenario_filter]
@@ -102,7 +95,7 @@ def run_benchmark(
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Run Jev log relevance filter benchmark")
+    parser = argparse.ArgumentParser(description="Run Jev agentic diagnostic benchmark")
     parser.add_argument(
         "--scenarios",
         default="all",
@@ -111,8 +104,8 @@ def main() -> None:
     parser.add_argument("--runs", type=int, default=None, help="Runs per scenario per agent")
     parser.add_argument(
         "--agents",
-        default="baseline,with_jev",
-        help="Comma-separated: baseline, with_jev, agentic, agentic_jev",
+        default="agentic,agentic_jev",
+        help="Comma-separated: agentic, agentic_jev",
     )
     parser.add_argument(
         "--jev-mode",

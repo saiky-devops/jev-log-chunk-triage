@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """
-Score a raw sample log file with Jev chunk relevance filtering.
+Score a raw sample log file with Jev chunk relevance filtering (offline utility).
+
+For full agentic diagnosis use: python scripts/test_agentic.py
 
 Usage:
   python scripts/test_sample_log.py
   python scripts/test_sample_log.py --log samples/report-generator-oom.log
-  JEV_MODE=live python scripts/test_sample_log.py --diagnose
+  python scripts/test_sample_log.py --list
 """
 
 from __future__ import annotations
@@ -17,7 +19,6 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from agents.common import build_diagnosis_prompt, build_llm, invoke_llm_diagnosis
 from jev.chunk_scorer import ChunkRelevanceScorer
 from scripts.log_utils import chunk_by_blank_lines, load_incident, load_log_lines
 
@@ -35,11 +36,10 @@ DEFAULT_INCIDENT = ROOT / "samples" / "incident-report-generator-oom.yaml"
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Test Jev filtering on a sample log file")
+    parser = argparse.ArgumentParser(description="Test Jev chunk scoring on a sample log file")
     parser.add_argument("--log", type=Path, default=None, help="Path to sample .log file")
     parser.add_argument("--incident", type=Path, default=None, help="Incident YAML")
     parser.add_argument("--list", action="store_true", help="List available sample log files")
-    parser.add_argument("--diagnose", action="store_true", help="Run LLM diagnosis on filtered chunks")
     args = parser.parse_args()
 
     if args.list:
@@ -47,14 +47,12 @@ def main() -> None:
         for log_name, inc_name, desc in SAMPLES:
             print(f"  {log_name:<30} {desc}")
         print("\nExample:")
-        print("  python scripts/test_sample_log.py --log samples/crashloop-db-config.log \\")
-        print("    --incident samples/incident-crashloop-db-config.yaml")
+        print("  python scripts/test_sample_log.py --log samples/crashloop-db-config.log")
         return
 
     log_path = args.log or DEFAULT_LOG
     incident_path = args.incident or DEFAULT_INCIDENT
     if args.log and not args.incident:
-        # Auto-pair incident file when log name is known
         for log_name, inc_name, _ in SAMPLES:
             if log_path.name == log_name:
                 incident_path = ROOT / "samples" / inc_name
@@ -89,29 +87,8 @@ def main() -> None:
     passed_chars = sum(len(c) for _, c in passed)
     pct = (1 - passed_chars / total_chars) * 100 if total_chars else 0
 
-    print(f"\nPassed {len(passed)}/{len(chunks)} chunks to LLM")
+    print(f"\nPassed {len(passed)}/{len(chunks)} chunks")
     print(f"Context compression: {pct:.0f}% of characters filtered")
-
-    if args.diagnose:
-        import config as cfg
-        if not cfg.settings.openai_api_key:
-            print("\nSet OPENAI_API_KEY in .env to run --diagnose")
-            sys.exit(1)
-        from benchmark.telemetry import TelemetryCollector
-
-        class ScenarioShim:
-            def __init__(self, inc: dict, metrics: str = ""):
-                self.incident = inc
-                self.metrics_summary = inc.get("metrics_summary", metrics)
-                self.runbook_excerpt = ""
-
-        scenario = ScenarioShim(incident, incident.get("metrics_summary", ""))
-        telemetry = TelemetryCollector("sample_log", "with_jev", 0)
-        llm = build_llm()
-        messages = build_diagnosis_prompt(scenario, passed)  # type: ignore[arg-type]
-        diagnosis = invoke_llm_diagnosis(llm, messages, telemetry, "sample_diagnose")
-        print("\n--- DIAGNOSIS ---")
-        print(diagnosis)
 
 
 if __name__ == "__main__":

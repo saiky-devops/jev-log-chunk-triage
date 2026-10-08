@@ -172,7 +172,7 @@ def run_agentic_agent(
 ) -> dict[str, Any]:
     """
     Run tool-calling agent loop.
-    use_jev=False: agentic baseline (all fetched chunks returned to LLM).
+    use_jev=False: return all fetched chunks to the LLM.
     use_jev=True: Jev filters each fetch_logs result before the LLM sees it.
     """
     store = MockLogStore(scenario)

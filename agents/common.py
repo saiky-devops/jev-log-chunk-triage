@@ -2,24 +2,12 @@
 
 from __future__ import annotations
 
-import time
 from typing import Any
 
-from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 
 from config import settings
-from scenarios.loader import LogChunk, Scenario
-
-SYSTEM_PROMPT = """You are an observability diagnostic agent. Given an incident summary and
-log/trace excerpts, produce a concise root-cause diagnosis.
-
-Respond with a paragraph starting with "DIAGNOSIS:" that states:
-- likely root cause
-- supporting evidence from the logs
-- recommended next action (rollback, escalate, adjust limits, or no action)
-
-Use only evidence present in the provided context."""
+from scenarios.loader import Scenario
 
 
 def build_llm() -> ChatOpenAI:
@@ -48,48 +36,6 @@ def format_incident_block(scenario: Scenario) -> str:
     if scenario.runbook_excerpt:
         parts.append(f"\nRUNBOOK EXCERPT\n{scenario.runbook_excerpt}")
     return "\n".join(parts)
-
-
-def format_chunks_block(chunks: list[tuple[str, str]]) -> str:
-    if not chunks:
-        return "LOG EXCERPTS\n(none passed relevance filter)"
-    sections = []
-    for chunk_id, content in chunks:
-        sections.append(f"--- {chunk_id} ---\n{content}")
-    return "LOG EXCERPTS\n" + "\n\n".join(sections)
-
-
-def build_diagnosis_prompt(scenario: Scenario, chunks: list[tuple[str, str]]) -> list:
-    body = f"{format_incident_block(scenario)}\n\n{format_chunks_block(chunks)}"
-    return [
-        SystemMessage(content=SYSTEM_PROMPT),
-        HumanMessage(content=body),
-    ]
-
-
-def invoke_llm_diagnosis(
-    llm: ChatOpenAI,
-    messages: list,
-    telemetry: Any,
-    call_name: str = "diagnose",
-) -> str:
-    start = time.perf_counter()
-    input_text = " ".join(
-        m.content if isinstance(getattr(m, "content", None), str) else str(getattr(m, "content", ""))
-        for m in messages
-    )
-    response = llm.invoke(messages)
-    latency = (time.perf_counter() - start) * 1000
-    output_text = response.content if isinstance(response.content, str) else str(response.content or "")
-    usage = getattr(response, "usage_metadata", None)
-    if usage:
-        in_tok = usage.get("input_tokens", count_tokens_approx(input_text))
-        out_tok = usage.get("output_tokens", count_tokens_approx(output_text))
-    else:
-        in_tok = count_tokens_approx(input_text)
-        out_tok = count_tokens_approx(output_text)
-    telemetry.log_llm(call_name, in_tok, out_tok, latency, context_chars=len(input_text))
-    return output_text
 
 
 def evaluate_diagnosis(

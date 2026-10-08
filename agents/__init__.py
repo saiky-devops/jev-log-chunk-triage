@@ -1,1 +1,1 @@
-# Agent implementations: baseline (all chunks) and with_jev (filtered).
+# Agentic diagnostic loop with optional Jev filtering per fetch.

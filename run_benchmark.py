@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Entry point for the Jev log relevance filter benchmark."""
+"""Entry point for the Jev agentic diagnostic benchmark."""
 
 from benchmark.runner import main
 

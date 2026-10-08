@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Smoke test: validate scenarios and mock chunk scoring without API keys."""
+"""Smoke test: scenarios, Jev chunk scoring, and mock log store — no API keys."""
 
 import sys
 from pathlib import Path
@@ -16,6 +16,7 @@ importlib.reload(config)
 
 from jev.chunk_scorer import ChunkRelevanceScorer
 from scenarios.loader import load_all_scenarios
+from tools.log_store import MockLogStore
 
 
 def main() -> None:
@@ -36,6 +37,13 @@ def main() -> None:
             f"  {s.id}: {len(passed)}/{len(chunks)} chunks passed, "
             f"signal recall={recall:.0%}, signals={len(signal_ids)}"
         )
+
+    s0 = scenarios[0]
+    store = MockLogStore(s0)
+    batch = store.fetch_logs(severity="ALL", limit=3)
+    assert batch, "MockLogStore should return chunks"
+    assert store.remaining_count() == len(s0.log_chunks) - 3
+    print(f"\nMockLogStore: fetched {len(batch)} chunk(s), {store.remaining_count()} remaining")
 
     print("\nAll smoke tests passed.")
 

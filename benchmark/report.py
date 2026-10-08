@@ -15,8 +15,8 @@ from config import RESULTS_DIR
 
 def write_markdown_report(summary: dict[str, Any], output_path: Path) -> None:
     by_agent = summary["by_agent"]
-    baseline = by_agent.get("baseline", {})
-    jev = by_agent.get("with_jev", {})
+    plain = by_agent.get("agentic", {})
+    jev = by_agent.get("agentic_jev", {})
 
     def pct_reduction(base_val: float, jev_val: float) -> str:
         if base_val == 0:
@@ -28,42 +28,44 @@ def write_markdown_report(summary: dict[str, Any], output_path: Path) -> None:
     llm_model = cfg.get("llm_model", "unknown")
 
     lines = [
-        "# Jev Log Relevance Filter — Benchmark Results",
+        "# Jev Agentic Diagnostic Agent — Benchmark Results",
         "",
         f"Generated: {datetime.now(timezone.utc).isoformat()}",
         f"JEV_MODE: **{jev_mode}** | LLM: **{llm_model}**",
         "",
         "## Summary",
         "",
-        "Agent A dumps **all** log/trace chunks into the LLM. Agent B uses Jev to score",
-        "chunk relevance and passes only high-signal excerpts to the diagnostic LLM.",
+        "Both agents use a **tool-calling loop** (`fetch_logs` → reason → `submit_diagnosis`).",
+        "Agentic Jev applies relevance filtering to each `fetch_logs` batch before the LLM sees it.",
         "All log data is **mocked** from recorded fixtures.",
-        *(["", "> **Note:** Shadow mode scores chunks but still passes all context to the LLM.", ""]
+        *(["", "> **Note:** Shadow mode scores chunks but still passes all fetched context to the LLM.", ""]
           if jev_mode == "shadow" else []),
         "",
-        "| Metric | Baseline | With Jev | Reduction |",
+        "| Metric | Agentic | Agentic + Jev | Delta |",
         "| --- | ---: | ---: | ---: |",
-        f"| LLM input tokens (avg) | {baseline.get('input_tokens_avg', 0):.0f} | {jev.get('input_tokens_avg', 0):.0f} | {pct_reduction(baseline.get('input_tokens_avg', 0), jev.get('input_tokens_avg', 0))} |",
-        f"| Est. cost USD (avg) | ${baseline.get('cost_usd_avg', 0):.6f} | ${jev.get('cost_usd_avg', 0):.6f} | {pct_reduction(baseline.get('cost_usd_avg', 0), jev.get('cost_usd_avg', 0))} |",
-        f"| Chunks passed to LLM (avg) | {baseline.get('chunks_passed_avg', 0):.1f} | {jev.get('chunks_passed_avg', 0):.1f} | {pct_reduction(baseline.get('chunks_passed_avg', 0), jev.get('chunks_passed_avg', 0))} |",
-        f"| Context compression (avg) | 0% | {jev.get('context_compression_pct_avg', 0):.1f}% | — |",
-        f"| Signal recall (avg) | {baseline.get('signal_recall_avg', 1)*100:.0f}% | {jev.get('signal_recall_avg', 0)*100:.0f}% | — |",
-        f"| Correct diagnosis rate | {baseline.get('correct_rate', 0)*100:.0f}% | {jev.get('correct_rate', 0)*100:.0f}% | — |",
-        f"| Latency p50 (ms) | {baseline.get('latency_ms_p50', 0):.0f} | {jev.get('latency_ms_p50', 0):.0f} | {pct_reduction(baseline.get('latency_ms_p50', 0), jev.get('latency_ms_p50', 0))} |",
+        f"| LLM calls (avg) | {plain.get('llm_calls_avg', 0):.1f} | {jev.get('llm_calls_avg', 0):.1f} | — |",
+        f"| LLM input tokens (avg) | {plain.get('input_tokens_avg', 0):.0f} | {jev.get('input_tokens_avg', 0):.0f} | {pct_reduction(plain.get('input_tokens_avg', 0), jev.get('input_tokens_avg', 0))} |",
+        f"| Est. cost USD (avg) | ${plain.get('cost_usd_avg', 0):.6f} | ${jev.get('cost_usd_avg', 0):.6f} | {pct_reduction(plain.get('cost_usd_avg', 0), jev.get('cost_usd_avg', 0))} |",
+        f"| Chunks passed to LLM (avg) | {plain.get('chunks_passed_avg', 0):.1f} | {jev.get('chunks_passed_avg', 0):.1f} | {pct_reduction(plain.get('chunks_passed_avg', 0), jev.get('chunks_passed_avg', 0))} |",
+        f"| Context compression (avg) | {plain.get('context_compression_pct_avg', 0):.1f}% | {jev.get('context_compression_pct_avg', 0):.1f}% | — |",
+        f"| Signal recall (avg) | {plain.get('signal_recall_avg', 1)*100:.0f}% | {jev.get('signal_recall_avg', 0)*100:.0f}% | — |",
+        f"| Correct diagnosis rate | {plain.get('correct_rate', 0)*100:.0f}% | {jev.get('correct_rate', 0)*100:.0f}% | — |",
+        f"| Latency p50 (ms) | {plain.get('latency_ms_p50', 0):.0f} | {jev.get('latency_ms_p50', 0):.0f} | {pct_reduction(plain.get('latency_ms_p50', 0), jev.get('latency_ms_p50', 0))} |",
         "",
-        f"Jev chunk scores (avg, Agent B only): {jev.get('jev_calls_avg', 0):.1f}",
+        f"Jev chunk scores (avg, Agentic + Jev only): {jev.get('jev_calls_avg', 0):.1f}",
         "",
         "## Per-Scenario Results",
         "",
-        "| Scenario | Agent | Chunks in/out | Input tokens | Compression | Signal recall | Correct | Latency p50 |",
-        "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |",
+        "| Scenario | Agent | Chunks fetched/passed | LLM calls | Input tokens | Compression | Signal recall | Correct | Latency p50 |",
+        "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
     ]
 
     for row in summary["by_scenario"]:
         chunks = f"{row['chunks_total_avg']:.0f}/{row['chunks_passed_avg']:.0f}"
         lines.append(
             f"| {row['scenario_id']} | {row['agent_type']} | {chunks} | "
-            f"{row['input_tokens_avg']:.0f} | {row['context_compression_pct_avg']:.0f}% | "
+            f"{row['llm_calls_avg']:.1f} | {row['input_tokens_avg']:.0f} | "
+            f"{row['context_compression_pct_avg']:.0f}% | "
             f"{row['signal_recall_avg']*100:.0f}% | {row['correct_rate']*100:.0f}% | "
             f"{row['latency_ms_p50']:.0f} |"
         )
@@ -72,9 +74,9 @@ def write_markdown_report(summary: dict[str, Any], output_path: Path) -> None:
         "",
         "## Caveats",
         "",
-        "- Savings depend on log volume and signal-to-noise ratio in your observability stream.",
-        "- Jev adds one API call per chunk; trade LLM tokens for Jev calls.",
-        "- All logs and traces are mocked; results may differ on live Datadog/Splunk exports.",
+        "- Agentic agents use multiple LLM turns; compare token totals, not per-call size alone.",
+        "- Jev adds one API call per chunk scored on each fetch.",
+        "- All logs and traces are mocked; results may differ on live observability exports.",
         "- LLM behavior varies run-to-run; report averages over multiple runs.",
         "",
     ])
@@ -88,10 +90,12 @@ def generate_charts(summary: dict[str, Any], charts_dir: Path) -> list[Path]:
         return []
     df = pd.DataFrame(summary["by_scenario"])
     paths: list[Path] = []
+    agent_types = sorted(df["agent_type"].unique())
+    colors = ["#4C72B0", "#55A868", "#DD8452", "#C44E52"]
 
     fig, ax = plt.subplots(figsize=(10, 5))
     pivot = df.pivot(index="scenario_id", columns="agent_type", values="input_tokens_avg")
-    pivot.plot(kind="bar", ax=ax, color=["#4C72B0", "#55A868"])
+    pivot.plot(kind="bar", ax=ax, color=colors[: len(pivot.columns)])
     ax.set_title("LLM Input Tokens per Scenario")
     ax.set_ylabel("Input tokens")
     ax.legend(title="Agent")
@@ -101,21 +105,22 @@ def generate_charts(summary: dict[str, Any], charts_dir: Path) -> list[Path]:
     plt.close(fig)
     paths.append(p1)
 
-    fig, ax = plt.subplots(figsize=(10, 5))
-    jev_df = df[df["agent_type"] == "with_jev"]
-    ax.bar(jev_df["scenario_id"], jev_df["context_compression_pct_avg"], color="#55A868")
-    ax.set_title("Context Compression (Agent B only)")
-    ax.set_ylabel("% chars filtered")
-    plt.xticks(rotation=45, ha="right")
-    fig.tight_layout()
-    p2 = charts_dir / "context_compression.png"
-    fig.savefig(p2, dpi=150)
-    plt.close(fig)
-    paths.append(p2)
+    if "agentic_jev" in agent_types:
+        fig, ax = plt.subplots(figsize=(10, 5))
+        jev_df = df[df["agent_type"] == "agentic_jev"]
+        ax.bar(jev_df["scenario_id"], jev_df["context_compression_pct_avg"], color="#55A868")
+        ax.set_title("Context Compression (Agentic + Jev)")
+        ax.set_ylabel("% chars filtered")
+        plt.xticks(rotation=45, ha="right")
+        fig.tight_layout()
+        p2 = charts_dir / "context_compression.png"
+        fig.savefig(p2, dpi=150)
+        plt.close(fig)
+        paths.append(p2)
 
     fig, ax = plt.subplots(figsize=(10, 5))
     pivot_lat = df.pivot(index="scenario_id", columns="agent_type", values="latency_ms_p50")
-    pivot_lat.plot(kind="bar", ax=ax, color=["#4C72B0", "#DD8452"])
+    pivot_lat.plot(kind="bar", ax=ax, color=colors[: len(pivot_lat.columns)])
     ax.set_title("Latency p50 (ms) per Scenario")
     ax.set_ylabel("ms")
     ax.legend(title="Agent")
