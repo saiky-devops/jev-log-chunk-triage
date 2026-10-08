@@ -72,7 +72,7 @@ cp .env.example .env   # set OPENAI_API_KEY, TYPESAFE_API_KEY
 python scripts/smoke_test.py                                    # offline, no keys
 python scripts/test_agentic.py --scenario oom_heap_exhaustion     # one scenario
 JEV_MODE=live python scripts/test_agentic.py --scenario oom_heap_exhaustion --jev
-JEV_MODE=live python run_benchmark.py --runs 3                    # full benchmark
+JEV_MODE=live python run_benchmark.py --runs 3                    # full benchmark (use live, not shadow)
 ```
 
 Results: `results/REPORT.md`, `results/summary.json`, `results/charts/`

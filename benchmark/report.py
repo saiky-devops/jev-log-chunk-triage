@@ -38,7 +38,7 @@ def write_markdown_report(summary: dict[str, Any], output_path: Path) -> None:
         "Both agents use a **tool-calling loop** (`fetch_logs` → reason → `submit_diagnosis`).",
         "Agentic Jev applies relevance filtering to each `fetch_logs` batch before the LLM sees it.",
         "All log data is **mocked** from recorded fixtures.",
-        *(["", "> **Note:** Shadow mode scores chunks but still passes all fetched context to the LLM.", ""]
+        *(["", "> **⚠ Shadow mode:** Jev scores but does **not** filter. Expect 0% compression,", "> higher cost for agentic_jev, and no token savings. Re-run with `JEV_MODE=live`.", ""]
           if jev_mode == "shadow" else []),
         "",
         "| Metric | Agentic | Agentic + Jev | Delta |",

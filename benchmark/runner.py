@@ -58,6 +58,14 @@ def run_benchmark(
 
     print(f"Running benchmark: {len(scenarios)} scenarios × {runs} runs × {len(agents)} agents")
     print(f"JEV_MODE={settings.jev_mode}, LLM_MODEL={settings.llm_model}")
+    if settings.jev_mode == "shadow":
+        print(
+            "WARNING: JEV_MODE=shadow scores chunks but does NOT filter — "
+            "context compression will be 0% and agentic_jev adds overhead only. "
+            "Use JEV_MODE=live for meaningful comparison."
+        )
+    if "agentic_jev" in agents and settings.jev_mode == "mock":
+        print("WARNING: agentic_jev with JEV_MODE=mock uses keyword heuristics only.")
 
     raw_dir = RESULTS_DIR / "raw"
     all_metrics: list[RunMetrics] = []

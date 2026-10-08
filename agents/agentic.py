@@ -19,16 +19,22 @@ from tools.log_store import MockLogStore
 AGENTIC_SYSTEM_PROMPT = """You are an observability diagnostic agent investigating an active incident.
 
 You do NOT have log excerpts yet — only the incident summary below. Use tools to gather evidence:
-- fetch_logs: pull log chunks (try severity=ERROR or narrow time windows if initial fetches are noise)
+- fetch_logs: pull log chunks from the observability store
 - fetch_metrics: pull metrics summary
 - submit_diagnosis: call when ready with your final answer
 
-Your diagnosis must start with "DIAGNOSIS:" and include:
-- likely root cause
-- supporting evidence from fetched logs
-- recommended next action
+Investigation workflow (follow in order):
+1. fetch_logs(severity="ERROR", limit=4) — startup failures, OOM, connection errors
+2. fetch_logs(severity="WARN", limit=4) — CrashLoopBackOff, degradation, retries
+3. If chunks remain in store, fetch_logs(severity="ALL", limit=4) for deploy audit / context
+4. fetch_metrics() for corroborating metrics
+5. submit_diagnosis only when you have ERROR + WARN coverage or store is exhausted
 
-If fetched logs are insufficient, call fetch_logs again with different filters before submitting."""
+Your diagnosis must start with "DIAGNOSIS:" and include:
+- likely root cause with evidence from fetched logs
+- recommended next action from the runbook (rollback, undo deploy, scale limits, or escalate)
+
+Do NOT submit after a single fetch if the tool response says chunks remain."""
 
 
 def _log_llm_turn(
@@ -85,13 +91,19 @@ def _format_fetch_result(
         return (
             f"No relevant log excerpts returned ({raw_count} raw chunk(s) fetched, "
             f"{remaining} chunk(s) remain in store). "
-            "Try fetch_logs with severity=ERROR or a different time window."
+            "Try fetch_logs with severity=ERROR, WARN, or ALL."
         )
     sections = [f"--- {cid} ---\n{content}" for cid, content in passed]
     filter_note = " (Jev relevance filter applied)" if use_jev and settings.jev_mode == "live" else ""
+    hint = ""
+    if remaining > 0:
+        hint = (
+            f"\n\nNOTE: {remaining} chunk(s) still in store — "
+            "fetch ERROR, WARN, and ALL severities before submit_diagnosis."
+        )
     return (
         f"Returned {len(passed)}/{raw_count} excerpt(s){filter_note}. "
-        f"{remaining} chunk(s) remain.\n\n" + "\n\n".join(sections)
+        f"{remaining} chunk(s) remain.\n\n" + "\n\n".join(sections) + hint
     )
 
 
@@ -248,7 +260,9 @@ def run_agentic_agent(
         if isinstance(last, AIMessage) and last.content:
             diagnosis = str(last.content)
 
+    # Signal recall: chunks the LLM actually saw (after Jev filter if enabled)
     passed_ids = sorted(state["passed_chunk_ids"])
+    eval_details_extra = {"fetched_chunk_ids": sorted(state["all_fetched_ids"])}
     telemetry.set_chunk_stats(
         chunks_total=state["chunks_fetched_raw"],
         chunks_passed=len(passed_ids),
@@ -257,6 +271,7 @@ def run_agentic_agent(
     )
 
     correct, eval_details = evaluate_diagnosis(scenario, diagnosis, passed_ids)
+    eval_details.update(eval_details_extra)
     eval_details["agentic_turns"] = min(turn, max_turns)
     eval_details["tools_used"] = state["chunks_fetched_raw"] > 0
 
