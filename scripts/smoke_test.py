@@ -21,7 +21,7 @@ from tools.log_store import MockLogStore
 
 def main() -> None:
     scenarios = load_all_scenarios()
-    assert len(scenarios) >= 5, f"Expected >=5 scenarios, got {len(scenarios)}"
+    assert len(scenarios) >= 9, f"Expected >=9 scenarios, got {len(scenarios)}"
     print(f"Loaded {len(scenarios)} scenarios")
 
     scorer = ChunkRelevanceScorer()

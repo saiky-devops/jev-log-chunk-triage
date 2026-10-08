@@ -1,0 +1,65 @@
+id: disk_full_deploy
+name: Disk full during artifact deploy
+tags: [logs, disk, deploy]
+incident:
+  title: Deploy failed — artifact-writer pod evicted
+  service: artifact-writer
+  description: Release v3.2.0 stuck; artifact-writer cannot write build output to volume.
+  symptoms: Exit code 1, pod evicted, node disk pressure on worker-04
+metrics_summary: |
+  node_filesystem_avail_bytes{mount="/var/lib/kubelet"}: 0 on worker-04
+  kubelet_disk_pressure{node="worker-04"}: 1
+runbook_excerpt: |
+  Disk full: prune unused images, expand PVC, or reschedule to node with free space. Do not retry deploy until avail_bytes > 10%.
+log_chunks:
+  - id: chunk_01
+    is_signal: false
+    content: |
+      2026-10-06T16:00:01Z INFO  kube-probe - GET /health 200 1ms pod=artifact-writer-abc
+      2026-10-06T16:00:02Z INFO  kube-probe - GET /ready 200 2ms pod=artifact-writer-abc
+      2026-10-06T16:00:03Z DEBUG MetricsReporter - profiling sample cpu=3% mem=22%
+  - id: chunk_02
+    is_signal: false
+    content: |
+      2026-10-06T16:00:05Z INFO  AccessLog - GET /metrics 200 38ms prometheus-scraper
+      2026-10-06T16:00:06Z DEBUG sidecar - envoy downstream_rq_200=88
+      2026-10-06T16:00:07Z INFO  cron - scheduled cache warm completed keys=120
+  - id: chunk_03
+    is_signal: true
+    content: |
+      2026-10-06T16:00:15Z ERROR ArtifactWriter - write /var/data/builds/v3.2.0/output.tar failed errno=28
+      2026-10-06T16:00:15Z ERROR ArtifactWriter - No space left on device path=/var/data/builds
+      2026-10-06T16:00:15Z ERROR main - deploy step package-artifacts FAILED exit=1
+  - id: chunk_04
+    is_signal: false
+    content: |
+      2026-10-06T15:59:50Z DEBUG GCLogger - gc pause young 14ms freed 1MB
+      2026-10-06T15:59:55Z INFO  ConfigWatcher - no config changes detected
+  - id: chunk_05
+    is_signal: true
+    content: |
+      2026-10-06T16:00:16Z WARN  KubernetesEvents - Node worker-04 DiskPressure=True
+      2026-10-06T16:00:16Z WARN  KubernetesEvents - Evicted pod artifact-writer-abc reason=EphemeralStorageExceeded
+      2026-10-06T16:00:16Z INFO  kubelet - node disk usage 98.7% threshold exceeded
+  - id: chunk_06
+    is_signal: false
+    content: |
+      2026-10-06T15:59:40Z INFO  AccessLog - GET /health 200 1ms ua=kube-probe/1.29
+      2026-10-06T15:59:41Z DEBUG ConnectionPool - pool stats active=1 idle=4
+  - id: chunk_07
+    is_signal: false
+    content: |
+      2026-10-06T15:59:30Z INFO  ScheduledTask - heartbeat completed duration=9ms
+      2026-10-06T15:59:31Z DEBUG tracing - span export batch size=28 ok
+  - id: chunk_08
+    is_signal: false
+    content: |
+      2026-10-06T15:59:20Z INFO  DeployAudit - v3.2.0 started 8m ago stage=package-artifacts
+      2026-10-06T15:59:21Z DEBUG DNS - resolved artifact-store.internal A record ttl=60
+expected:
+  diagnosis_contains:
+    - disk
+    - space
+  required_signal_chunks:
+    - chunk_03
+    - chunk_05

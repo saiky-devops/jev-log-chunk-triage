@@ -69,6 +69,13 @@ class ChunkRelevanceScorer:
             "nullpointerexception",
             "postgres.query",
             "dominant",
+            "no space left on device",
+            "diskpressure",
+            "certificate has expired",
+            "x509:",
+            "429 too many requests",
+            "deadline exceeded",
+            "upstream timeout",
         )
         if any(m in text for m in signal_markers):
             return 0.90

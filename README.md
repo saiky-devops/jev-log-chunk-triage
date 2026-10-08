@@ -1,8 +1,8 @@
-# Jev Agentic Log Diagnostic Agent
+# Jev as a Decision Layer — Agentic Log Diagnosis Demo
 
-Benchmark and demo for an **agentic diagnostic agent** that investigates incidents via tool calls — fetching logs on demand — with optional **Jev** (TypeSafe's System One model) relevance filtering on each fetch.
+**Experiment / demo** — compares the **same agentic investigator** with and without **Jev** (TypeSafe's System One model) as a decision layer on each log fetch. This is not a production diagnostic product.
 
-> **Scope:** All logs are mocked fixtures (`scenarios/`, `samples/`). This validates the agentic + Jev pattern reproducibly; it is not a production log pipeline.
+> **Scope:** Mocked logs only (`scenarios/`, `samples/`). Same agent, same LLM — only the Jev filter is toggled (`agentic` vs `agentic_jev`).
 
 ## The problem
 
@@ -27,6 +27,38 @@ Alert → incident context (no logs yet)
 | Per-fetch filtering | None — all fetched chunks shown | Jev scores each batch |
 | LLM calls | Multiple (reason → act → observe) | Multiple |
 | Recovery | Re-fetch with different filters if context is thin | Same + compact excerpts |
+
+## How Jev decides what the LLM sees
+
+Jev is **not** the diagnostic agent. It sits **between `fetch_logs` and the LLM** and filters each batch before the agent reads the tool result.
+
+```
+fetch_logs returns N chunks
+  → for each chunk: score 0–1 vs active incident (title, service, symptoms)
+  → pass if score ≥ RELEVANCE_THRESHOLD (0.65 in live mode)
+  → only passed chunks go in the tool response → LLM
+```
+
+**Question Jev answers (via TypeSafe `Noul`):**  
+*Does this log chunk contain anomaly signal that helps diagnose this incident?*
+
+| Input per chunk | Output |
+| --- | --- |
+| Incident context + one log excerpt (≤4k chars) | Relevance score 0–1 → pass or drop |
+
+**Example:** `heap out of memory` → **0.91 pass** · `health check OK` → **0.08 drop**
+
+**Modes (`JEV_MODE`):**
+
+| Mode | Behavior |
+| --- | --- |
+| `live` | Drop chunks below threshold (use this for real comparison) |
+| `shadow` | Score only — all chunks still pass |
+| `mock` | Keyword heuristics, no API key |
+
+If live mode would drop **all** chunks in a batch, the top 1–2 by score are kept as a fallback.
+
+**Jev does not** choose when to fetch or when to diagnose — the agent does. Code: `agents/agentic.py` (calls filter) · `jev/chunk_scorer.py` (scores chunks).
 
 ## End-to-end flow (alert → LLM response)
 
@@ -77,6 +109,8 @@ JEV_MODE=live python run_benchmark.py --runs 3                    # full benchma
 
 Results: `results/REPORT.md`, `results/summary.json`, `results/charts/`
 
+**Latest live run:** ~53% log compression, ~12% fewer LLM tokens, 100% signal recall — at the cost of ~12% higher latency (Jev calls per chunk).
+
 ## Configuration
 
 Copy `.env.example` to `.env`. Do **not** commit `.env`.
@@ -101,6 +135,9 @@ Copy `.env.example` to `.env`. Do **not** commit `.env`.
 | `prompt_injection_in_logs` | Injection line + NPE among routine logs |
 | `routine_health_polls` | All noise — benign health-check traffic |
 | `trace_latency_spike` | Slow DB span among normal traces |
+| `disk_full_deploy` | No space left on device during deploy |
+| `tls_cert_expired` | x509 certificate expired on ingress |
+| `rate_limit_storm` | 429 storm from payment-svc timeout / DB down |
 
 Matching sample files in `samples/`. Score chunks offline: `python scripts/test_sample_log.py --list`.
 

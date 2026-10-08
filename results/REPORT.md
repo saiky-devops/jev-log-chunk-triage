@@ -1,6 +1,6 @@
 # Jev Agentic Diagnostic Agent — Benchmark Results
 
-Generated: 2026-10-08T03:57:36.900115+00:00
+Generated: 2026-10-08T04:14:39.214870+00:00
 JEV_MODE: **live** | LLM: **gpt-4o**
 
 ## Summary
@@ -11,33 +11,39 @@ All log data is **mocked** from recorded fixtures.
 
 | Metric | Agentic | Agentic + Jev | Delta |
 | --- | ---: | ---: | ---: |
-| LLM calls (avg) | 5.2 | 5.1 | — |
-| LLM input tokens (avg) | 4508 | 3983 | 11.7% |
-| Est. cost USD (avg) | $0.013514 | $0.012233 | 9.5% |
-| Chunks passed to LLM (avg) | 7.7 | 2.6 | 65.9% |
-| Context compression (avg) | 0.0% | 53.0% | — |
+| LLM calls (avg) | 5.1 | 5.0 | — |
+| LLM input tokens (avg) | 4668 | 3960 | 15.2% |
+| Est. cost USD (avg) | $0.014009 | $0.012088 | 13.7% |
+| Chunks passed to LLM (avg) | 7.7 | 2.4 | 68.8% |
+| Context compression (avg) | 0.0% | 56.6% | — |
 | Signal recall (avg) | 100% | 100% | — |
 | Correct diagnosis rate | 100% | 100% | — |
-| Latency p50 (ms) | 4724 | 5275 | -11.7% |
+| Latency p50 (ms) | 4731 | 5173 | -9.4% |
 
-Jev chunk scores (avg, Agentic + Jev only): 7.9
+Jev chunk scores (avg, Agentic + Jev only): 7.7
 
 ## Per-Scenario Results
 
 | Scenario | Agent | Chunks fetched/passed | LLM calls | Input tokens | Compression | Signal recall | Correct | Latency p50 |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| crashloop_db_config | agentic | 8/8 | 5.0 | 4357 | 0% | 100% | 100% | 4741 |
-| crashloop_db_config | agentic_jev | 7/4 | 5.3 | 4406 | 42% | 100% | 100% | 5210 |
-| db_connection_cascade | agentic | 8/8 | 4.7 | 4085 | 0% | 100% | 100% | 3899 |
-| db_connection_cascade | agentic_jev | 8/2 | 4.7 | 3756 | 56% | 100% | 100% | 4814 |
-| oom_heap_exhaustion | agentic | 8/8 | 5.0 | 4796 | 0% | 100% | 100% | 4705 |
-| oom_heap_exhaustion | agentic_jev | 7/3 | 5.0 | 4196 | 54% | 100% | 100% | 4757 |
-| prompt_injection_in_logs | agentic | 8/8 | 5.7 | 4750 | 0% | 100% | 100% | 5414 |
-| prompt_injection_in_logs | agentic_jev | 8/3 | 5.7 | 4260 | 52% | 100% | 100% | 6236 |
-| routine_health_polls | agentic | 6/6 | 5.7 | 4878 | 0% | 100% | 100% | 5422 |
-| routine_health_polls | agentic_jev | 6/3 | 5.0 | 3774 | 55% | 100% | 100% | 5113 |
-| trace_latency_spike | agentic | 8/8 | 5.3 | 4184 | 0% | 100% | 100% | 5076 |
-| trace_latency_spike | agentic_jev | 8/2 | 5.0 | 3507 | 58% | 100% | 100% | 5433 |
+| crashloop_db_config | agentic | 8/8 | 5.0 | 4357 | 0% | 100% | 100% | 5386 |
+| crashloop_db_config | agentic_jev | 7/4 | 5.3 | 4406 | 42% | 100% | 100% | 5413 |
+| db_connection_cascade | agentic | 8/8 | 4.0 | 3635 | 0% | 100% | 100% | 3392 |
+| db_connection_cascade | agentic_jev | 8/2 | 4.0 | 3201 | 56% | 100% | 100% | 4378 |
+| disk_full_deploy | agentic | 8/8 | 5.7 | 5898 | 0% | 100% | 100% | 4731 |
+| disk_full_deploy | agentic_jev | 6/2 | 5.0 | 4214 | 58% | 100% | 100% | 5322 |
+| oom_heap_exhaustion | agentic | 7/7 | 5.0 | 4760 | 0% | 100% | 100% | 4189 |
+| oom_heap_exhaustion | agentic_jev | 6/2 | 5.0 | 4060 | 61% | 100% | 100% | 4824 |
+| prompt_injection_in_logs | agentic | 8/8 | 5.0 | 4001 | 0% | 100% | 100% | 4047 |
+| prompt_injection_in_logs | agentic_jev | 8/3 | 5.7 | 4280 | 48% | 100% | 100% | 5620 |
+| rate_limit_storm | agentic | 8/8 | 5.3 | 5320 | 0% | 100% | 100% | 4875 |
+| rate_limit_storm | agentic_jev | 8/2 | 5.0 | 4189 | 64% | 100% | 100% | 4907 |
+| routine_health_polls | agentic | 6/6 | 6.0 | 5057 | 0% | 100% | 100% | 5282 |
+| routine_health_polls | agentic_jev | 6/2 | 5.0 | 3571 | 65% | 100% | 100% | 5116 |
+| tls_cert_expired | agentic | 8/8 | 5.3 | 5177 | 0% | 100% | 100% | 4318 |
+| tls_cert_expired | agentic_jev | 8/3 | 5.0 | 4210 | 58% | 100% | 100% | 5336 |
+| trace_latency_spike | agentic | 8/8 | 5.0 | 3808 | 0% | 100% | 100% | 4757 |
+| trace_latency_spike | agentic_jev | 8/2 | 5.0 | 3507 | 58% | 100% | 100% | 6268 |
 
 ## Caveats
 

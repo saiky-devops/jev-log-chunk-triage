@@ -1,0 +1,65 @@
+id: rate_limit_storm
+name: Rate limit storm from upstream timeout
+tags: [logs, api, cascade]
+incident:
+  title: 429 spike — checkout-api
+  service: checkout-api
+  description: Clients flooded with 429 Too Many Requests; upstream payment-svc may be timing out.
+  symptoms: http 429 rate 40%, payment-svc p99 30s, circuit breaker half-open
+metrics_summary: |
+  http_requests_total{status="429",service="checkout-api"}: +2400/min
+  http_client_duration_seconds{upstream="payment-svc",quantile="0.99"}: 30.2
+runbook_excerpt: |
+  429 storm: identify upstream timeout root cause before raising rate limits. Escalate payment-svc if dependency unhealthy.
+log_chunks:
+  - id: chunk_01
+    is_signal: false
+    content: |
+      2026-10-06T13:00:01Z INFO  AccessLog - GET /health 200 1ms
+      2026-10-06T13:00:02Z INFO  AccessLog - GET /ready 200 2ms
+      2026-10-06T13:00:03Z DEBUG RateLimiter - local bucket tokens=1000/1000
+  - id: chunk_02
+    is_signal: false
+    content: |
+      2026-10-06T13:00:05Z INFO  AccessLog - GET /static/logo.png 200 5ms
+      2026-10-06T13:00:06Z DEBUG CacheLayer - cache hit ratio 0.94 keyspace=session
+      2026-10-06T13:00:07Z INFO  metrics - scrape completed series=1100
+  - id: chunk_03
+    is_signal: true
+    content: |
+      2026-10-06T13:00:20Z WARN  HttpClient - upstream payment-svc POST /charge deadline exceeded timeout=30s
+      2026-10-06T13:00:20Z ERROR CheckoutHandler - payment dependency failed after 3 retries
+      2026-10-06T13:00:20Z WARN  RateLimiter - rejecting request 429 Too Many Requests client_id=mobile-app
+  - id: chunk_04
+    is_signal: false
+    content: |
+      2026-10-06T12:59:50Z DEBUG tracing - span export batch size=42 ok
+      2026-10-06T12:59:51Z INFO  sidecar - envoy downstream_rq_200=200
+  - id: chunk_05
+    is_signal: true
+    content: |
+      2026-10-06T13:00:21Z ERROR payment-svc - database unreachable Connection refused postgres-replica:5432
+      2026-10-06T13:00:21Z ERROR payment-svc - charge handler aborting latency=30012ms
+      Cascade: checkout-api 429s caused by payment-svc timeout not client abuse
+  - id: chunk_06
+    is_signal: false
+    content: |
+      2026-10-06T12:59:40Z INFO  ScheduledTask - heartbeat completed duration=10ms
+      2026-10-06T12:59:41Z DEBUG GCLogger - gc pause young 13ms
+  - id: chunk_07
+    is_signal: false
+    content: |
+      2026-10-06T12:59:30Z INFO  AccessLog - GET /health 200 1ms ua=kube-probe
+      2026-10-06T12:59:31Z DEBUG ConnectionPool - pool stats active=2 idle=6
+  - id: chunk_08
+    is_signal: false
+    content: |
+      2026-10-06T12:59:20Z INFO  DeployAudit - no deploy in last 24h service=checkout-api HEALTHY
+      2026-10-06T12:59:21Z DEBUG ConfigWatcher - no config changes detected
+expected:
+  diagnosis_contains:
+    - payment
+    - timeout
+  required_signal_chunks:
+    - chunk_03
+    - chunk_05

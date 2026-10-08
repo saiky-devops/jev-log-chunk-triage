@@ -1,0 +1,64 @@
+id: tls_cert_expired
+name: TLS certificate expired on ingress
+tags: [logs, tls, ingress]
+incident:
+  title: TLS handshake failures — public-api ingress
+  service: ingress-nginx-public
+  description: External clients report SSL errors; cert for api.example.com may be expired.
+  symptoms: TLS alert certificate expired, 502 from load balancer, cert-manager last renew failed
+metrics_summary: |
+  nginx_ingress_controller_ssl_expire_time_seconds{host="api.example.com"}: negative offset
+  certmanager_certificate_ready_status{ name="api-example-com-tls"}: 0
+runbook_excerpt: |
+  Expired cert: verify cert-manager Certificate resource, force renew, or rollback ingress secret to previous valid cert.
+log_chunks:
+  - id: chunk_01
+    is_signal: false
+    content: |
+      2026-10-06T11:00:01Z INFO  AccessLog - GET /health 200 1ms upstream=default-backend
+      2026-10-06T11:00:02Z INFO  AccessLog - GET /ready 200 1ms
+      2026-10-06T11:00:03Z DEBUG controller - sync queue depth=0
+  - id: chunk_02
+    is_signal: true
+    content: |
+      2026-10-06T11:00:10Z ERROR nginx - SSL handshake failed host=api.example.com
+      2026-10-06T11:00:10Z ERROR nginx - x509: certificate has expired: notAfter=2026-10-05T23:59:59Z
+      2026-10-06T11:00:10Z WARN  ingress - rejecting TLS connection peer=203.0.113.44
+  - id: chunk_03
+    is_signal: false
+    content: |
+      2026-10-06T10:59:55Z INFO  AccessLog - GET /internal/metrics 200 22ms
+      2026-10-06T10:59:56Z DEBUG cache - cert cache hit ratio 0.91
+  - id: chunk_04
+    is_signal: true
+    content: |
+      2026-10-06T11:00:11Z ERROR cert-manager - Certificate api-example-com-tls renew failed
+      Reason: ACME authorization timeout issuer=letsencrypt-prod
+      2026-10-06T11:00:11Z WARN  cert-manager - Secret tls-api-example-com not updated
+  - id: chunk_05
+    is_signal: false
+    content: |
+      2026-10-06T10:59:40Z INFO  sidecar - xds snapshot version=9912
+      2026-10-06T10:59:41Z DEBUG metrics - scrape completed series=890
+  - id: chunk_06
+    is_signal: false
+    content: |
+      2026-10-06T10:59:30Z INFO  AccessLog - GET /health 200 1ms ua=kube-probe
+      2026-10-06T10:59:31Z DEBUG GCLogger - gc pause 11ms
+  - id: chunk_07
+    is_signal: false
+    content: |
+      2026-10-06T10:59:20Z INFO  ScheduledTask - cron heartbeat completed duration=11ms
+      2026-10-06T10:59:21Z DEBUG tracing - exported 19 spans
+  - id: chunk_08
+    is_signal: false
+    content: |
+      2026-10-06T10:59:10Z INFO  LoadBalancer - backend pool healthy targets=12/12
+      2026-10-06T10:59:11Z DEBUG DNS - resolved api.example.com CNAME ok
+expected:
+  diagnosis_contains:
+    - cert
+    - expired
+  required_signal_chunks:
+    - chunk_02
+    - chunk_04
