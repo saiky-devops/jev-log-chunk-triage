@@ -109,7 +109,7 @@ JEV_MODE=live python run_benchmark.py --runs 3                    # full benchma
 
 Results: `results/REPORT.md`, `results/summary.json`, `results/charts/`
 
-**Latest live run:** ~53% log compression, ~12% fewer LLM tokens, 100% signal recall — at the cost of ~12% higher latency (Jev calls per chunk).
+**Latest live run:** see [results/REPORT.md](results/REPORT.md).
 
 ## Configuration
 

@@ -218,7 +218,6 @@ def run_agentic_agent(
     ]
 
     max_turns = settings.agent_max_turns
-    start = time.perf_counter()
 
     for turn in range(1, max_turns + 1):
         turn_start = time.perf_counter()

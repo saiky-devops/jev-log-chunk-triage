@@ -52,8 +52,9 @@ class ChunkRelevanceScorer:
             parts.append(f"Symptoms: {incident['symptoms']}")
         return "\n".join(parts)
 
-    def _mock_score(self, chunk_content: str, is_signal: bool) -> float:
-        if is_signal:
+    def _mock_score(self, chunk_content: str, *, signal_hint: bool = False) -> float:
+        """Keyword heuristics. signal_hint only in mock mode (never live/shadow fallback)."""
+        if signal_hint:
             return 0.92
         text = chunk_content.lower()
         signal_markers = (
@@ -108,8 +109,7 @@ class ChunkRelevanceScorer:
             f"LOG CHUNK ({chunk_id})\n{chunk_content[:4000]}"
         )
 
-        relevance = self._mock_score(chunk_content, is_signal)
-        source = "mock"
+        allow_signal_hint = self.mode == "mock"
 
         if self._classifier and Noul:
             try:
@@ -129,8 +129,19 @@ class ChunkRelevanceScorer:
                 if response and hasattr(response, "nouls"):
                     relevance = response.nouls["relevant"].noul
                     source = "jev"
+                else:
+                    relevance = self._mock_score(chunk_content, signal_hint=False)
+                    source = "jev_error"
             except Exception as exc:
                 self._log("jev_error", (time.perf_counter() - start) * 1000, error=str(exc))
+                relevance = self._mock_score(chunk_content, signal_hint=False)
+                source = "jev_error"
+        else:
+            relevance = self._mock_score(
+                chunk_content,
+                signal_hint=allow_signal_hint and is_signal,
+            )
+            source = "mock"
 
         passed = relevance >= self.threshold
         if self.mode == "shadow":

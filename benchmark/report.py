@@ -25,7 +25,8 @@ def write_markdown_report(summary: dict[str, Any], output_path: Path) -> None:
 
     cfg = summary.get("config", {})
     jev_mode = cfg.get("jev_mode", "unknown")
-    llm_model = cfg.get("llm_model", "unknown")
+    llm_model = cfg.get("llm_model", "gpt-4o")
+    cost_label = f"Estimated {llm_model} cost (LLM only)"
 
     lines = [
         "# Jev Agentic Diagnostic Agent — Benchmark Results",
@@ -45,7 +46,7 @@ def write_markdown_report(summary: dict[str, Any], output_path: Path) -> None:
         "| --- | ---: | ---: | ---: |",
         f"| LLM calls (avg) | {plain.get('llm_calls_avg', 0):.1f} | {jev.get('llm_calls_avg', 0):.1f} | — |",
         f"| LLM input tokens (avg) | {plain.get('input_tokens_avg', 0):.0f} | {jev.get('input_tokens_avg', 0):.0f} | {pct_reduction(plain.get('input_tokens_avg', 0), jev.get('input_tokens_avg', 0))} |",
-        f"| Est. cost USD (avg) | ${plain.get('cost_usd_avg', 0):.6f} | ${jev.get('cost_usd_avg', 0):.6f} | {pct_reduction(plain.get('cost_usd_avg', 0), jev.get('cost_usd_avg', 0))} |",
+        f"| {cost_label} | ${plain.get('cost_usd_avg', 0):.6f} | ${jev.get('cost_usd_avg', 0):.6f} | {pct_reduction(plain.get('cost_usd_avg', 0), jev.get('cost_usd_avg', 0))} |",
         f"| Chunks passed to LLM (avg) | {plain.get('chunks_passed_avg', 0):.1f} | {jev.get('chunks_passed_avg', 0):.1f} | {pct_reduction(plain.get('chunks_passed_avg', 0), jev.get('chunks_passed_avg', 0))} |",
         f"| Context compression (avg) | {plain.get('context_compression_pct_avg', 0):.1f}% | {jev.get('context_compression_pct_avg', 0):.1f}% | — |",
         f"| Signal recall (avg) | {plain.get('signal_recall_avg', 1)*100:.0f}% | {jev.get('signal_recall_avg', 0)*100:.0f}% | — |",

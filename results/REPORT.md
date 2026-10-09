@@ -13,7 +13,7 @@ All log data is **mocked** from recorded fixtures.
 | --- | ---: | ---: | ---: |
 | LLM calls (avg) | 5.1 | 5.0 | — |
 | LLM input tokens (avg) | 4668 | 3960 | 15.2% |
-| Est. cost USD (avg) | $0.014009 | $0.012088 | 13.7% |
+| Estimated gpt-4o cost (LLM only) | $0.014009 | $0.012088 | 13.7% |
 | Chunks passed to LLM (avg) | 7.7 | 2.4 | 68.8% |
 | Context compression (avg) | 0.0% | 56.6% | — |
 | Signal recall (avg) | 100% | 100% | — |
